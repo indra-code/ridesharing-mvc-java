@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" 
+      th:replace="~{layout/base :: layout(~{::title}, ~{::section})}">
+<head>
+    <title>Request a Ride - RideShare</title>
+</head>
+<body>
+    <section>
+        <div class="row">
+            <div class="col-lg-12">
+                <div class="card">
+                    <div class="card-header bg-primary text-white">
+                        <h4 class="mb-0"><i class="fas fa-route me-2"></i>Request a Ride</h4>
+                    </div>
+                    <div class="card-body">
+                        <div th:if="${error}" class="alert alert-danger" role="alert" th:text="${error}"></div>
+                        
+                        <!-- Map Container -->
+                        <div id="mapContainer" class="map-container"></div>
+                        
+                        <form th:action="@{/ride/request}" method="post" id="rideRequestForm">
+                            <!-- Hidden coordinates fields -->
+                            <input type="hidden" id="startLat" name="startLat">
+                            <input type="hidden" id="startLng" name="startLng">
+                            <input type="hidden" id="endLat" name="endLat">
+                            <input type="hidden" id="endLng" name="endLng">
+                            
+                            <div class="row mb-4">
+                                <div class="col-md-6">
+                                    <label for="riderId" class="form-label">Select Your Profile</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text"><i class="fas fa-user"></i></span>
+                                        <select class="form-select" id="riderId" name="riderId" required>
+                                            <option value="1">Test Rider (ID: 1)</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="startLocation" class="form-label">
+                                            <i class="fas fa-map-marker-alt text-danger me-2"></i>Start Location
+                                        </label>
+                                        <div class="input-group">
+                                            <input type="text" class="form-control" id="startLocation" 
+                                                  name="startLocation" placeholder="Enter pickup location" required>
+                                            <button class="btn btn-outline-secondary" type="button" 
+                                                    id="startLocationMapPicker">
+                                                <i class="fas fa-map-pin"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="endLocation" class="form-label">
+                                            <i class="fas fa-flag-checkered me-2"></i>Destination
+                                        </label>
+                                        <div class="input-group">
+                                            <input type="text" class="form-control" id="endLocation" 
+                                                  name="endLocation" placeholder="Enter your destination" required>
+                                            <button class="btn btn-outline-secondary" type="button" 
+                                                    id="endLocationMapPicker">
+                                                <i class="fas fa-map-pin"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="d-grid mt-4">
+                                <button type="submit" class="btn btn-primary btn-lg">
+                                    <i class="fas fa-car-side me-2"></i>Request Ride
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+    
+    <th:block th:fragment="scripts">
+        <script th:inline="javascript">
+            // Initialize map
+            const map = L.map('mapContainer').setView([40.7128, -74.0060], 13);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            }).addTo(map);
+            
+            // Markers for start and end locations
+            let startMarker, endMarker;
+            let pickingStart = false;
+            let pickingEnd = false;
+            
+            // Start location picker
+            document.getElementById('startLocationMapPicker').addEventListener('click', function() {
+                pickingStart = true;
+                pickingEnd = false;
+                map.getContainer().style.cursor = 'crosshair';
+                alert('Click on the map to select pickup location');
+            });
+            
+            // End location picker
+            document.getElementById('endLocationMapPicker').addEventListener('click', function() {
+                pickingStart = false;
+                pickingEnd = true;
+                map.getContainer().style.cursor = 'crosshair';
+                alert('Click on the map to select destination');
+            });
+            
+            // Map click handler
+            map.on('click', function(e) {
+                if (pickingStart) {
+                    setStartLocation(e.latlng);
+                    pickingStart = false;
+                    map.getContainer().style.cursor = '';
+                } else if (pickingEnd) {
+                    setEndLocation(e.latlng);
+                    pickingEnd = false;
+                    map.getContainer().style.cursor = '';
+                }
+            });
+            
+            function setStartLocation(latlng) {
+                if (startMarker) {
+                    map.removeLayer(startMarker);
+                }
+                startMarker = L.marker(latlng, {
+                    icon: L.divIcon({
+                        className: 'custom-div-icon',
+                        html: '<div style="background-color: #ea4335; width: 15px; height: 15px; border-radius: 50%; border: 2px solid white;"></div>',
+                        iconSize: [15, 15],
+                        iconAnchor: [7, 7]
+                    })
+                }).addTo(map);
+                
+                // Reverse geocode to get address (simplified)
+                document.getElementById('startLocation').value = 'Pickup at ' + latlng.lat.toFixed(5) + ', ' + latlng.lng.toFixed(5);
+                document.getElementById('startLat').value = latlng.lat;
+                document.getElementById('startLng').value = latlng.lng;
+                
+                drawRoute();
+            }
+            
+            function setEndLocation(latlng) {
+                if (endMarker) {
+                    map.removeLayer(endMarker);
+                }
+                endMarker = L.marker(latlng, {
+                    icon: L.divIcon({
+                        className: 'custom-div-icon',
+                        html: '<div style="background-color: #34a853; width: 15px; height: 15px; border-radius: 50%; border: 2px solid white;"></div>',
+                        iconSize: [15, 15],
+                        iconAnchor: [7, 7]
+                    })
+                }).addTo(map);
+                
+                // Reverse geocode to get address (simplified)
+                document.getElementById('endLocation').value = 'Destination at ' + latlng.lat.toFixed(5) + ', ' + latlng.lng.toFixed(5);
+                document.getElementById('endLat').value = latlng.lat;
+                document.getElementById('endLng').value = latlng.lng;
+                
+                drawRoute();
+            }
+            
+            let routeLine;
+            function drawRoute() {
+                // Only draw if we have both markers
+                if (startMarker && endMarker) {
+                    if (routeLine) {
+                        map.removeLayer(routeLine);
+                    }
+                    
+                    const startLatLng = startMarker.getLatLng();
+                    const endLatLng = endMarker.getLatLng();
+                    
+                    // Simple straight line for demo
+                    routeLine = L.polyline([startLatLng, endLatLng], {
+                        color: '#4a86e8',
+                        weight: 4,
+                        opacity: 0.7,
+                        dashArray: '10, 10'
+                    }).addTo(map);
+                    
+                    // Fit map to show both markers and route
+                    map.fitBounds(routeLine.getBounds(), {
+                        padding: [50, 50]
+                    });
+                }
+            }
+        </script>
+    </th:block>
+</body>
+</html> 
