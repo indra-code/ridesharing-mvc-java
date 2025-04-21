@@ -30,6 +30,16 @@ public class UserService {
     public Optional<User> findByUsername(String username) {
         return userRepository.findByUsername(username);
     }
+    
+    public Optional<User> authenticateUser(String username, String password) {
+        Optional<User> userOpt = findByUsername(username);
+        
+        if (userOpt.isPresent() && userOpt.get().getPassword().equals(password)) {
+            return userOpt;
+        }
+        
+        return Optional.empty();
+    }
 
     // Add login, profile update methods etc.
 } 
