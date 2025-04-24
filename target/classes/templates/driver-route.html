@@ -1,70 +1,38 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org">
+<html xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{layout/base :: layout(~{::title}, ~{::section}, ~{::th:block})}">
+
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Driver Route - RideSharing</title>
-    
-    <!-- Bootstrap CSS -->
-    <link rel="stylesheet" th:href="@{/webjars/bootstrap/5.3.3/css/bootstrap.min.css}">
-    <!-- Font Awesome -->
-    <link rel="stylesheet" th:href="@{/webjars/font-awesome/6.5.1/css/all.min.css}">
-    <!-- Leaflet CSS -->
-    <link rel="stylesheet" th:href="@{/webjars/leaflet/1.7.1/dist/leaflet.css}">
-    
-    <style>
-        .map-container {
-            height: 400px;
-            border-radius: 4px;
-            overflow: hidden;
-        }
-    </style>
+    <title>Driver Route - RideShare</title>
 </head>
-<body class="bg-light">
-    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
-        <div class="container">
-            <a class="navbar-brand" href="/"><i class="fas fa-car me-2"></i>RideSharing</a>
-            <div class="d-flex">
-                <form th:action="@{/driver/logout}" method="post">
-                    <button type="submit" class="btn btn-outline-light">
-                        <i class="fas fa-sign-out-alt me-2"></i>Logout
-                    </button>
-                </form>
-            </div>
-        </div>
-    </nav>
 
-    <div class="container mt-4">
-        <div class="row mb-4">
-            <div class="col">
-                <h2><i class="fas fa-route me-2"></i>Active Ride</h2>
-            </div>
-        </div>
-
-        <!-- Alert Messages -->
+<body>
+    <section>
         <div th:if="${message}" class="alert alert-success alert-dismissible fade show" role="alert">
             <i class="fas fa-check-circle me-2"></i><span th:text="${message}"></span>
             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         </div>
+        
         <div th:if="${error}" class="alert alert-danger alert-dismissible fade show" role="alert">
             <i class="fas fa-exclamation-circle me-2"></i><span th:text="${error}"></span>
             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         </div>
-
-        <div class="row">
+        
+        <div th:if="${ride}" class="row">
             <!-- Map Column -->
             <div class="col-lg-8">
                 <div class="card">
-                    <div class="card-header bg-primary text-white">
-                        <h5 class="mb-0"><i class="fas fa-map-marked-alt me-2"></i>Route Map</h5>
+                    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0"><i class="fas fa-map-marked-alt me-2"></i>Route to Pickup</h5>
+                        <span class="badge bg-light text-dark" th:text="${ride.status}">STATUS</span>
                     </div>
                     <div class="card-body p-0">
-                        <div id="routeMap" class="map-container"></div>
+                        <div id="driverRouteMapContainer" class="map-container" style="height: 500px;"></div>
                     </div>
                 </div>
             </div>
-
-            <!-- Ride Details Column -->
+            
+            <!-- Ride Info Column -->
             <div class="col-lg-4">
                 <div class="card mb-4">
                     <div class="card-header bg-primary text-white">
@@ -72,131 +40,159 @@
                     </div>
                     <div class="card-body">
                         <ul class="list-group list-group-flush">
-                            <li class="list-group-item">
-                                <i class="fas fa-user text-primary me-2"></i>
-                                <strong>Rider:</strong>
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                <span><i class="fas fa-hashtag me-2 text-primary"></i>Ride ID</span>
+                                <span class="badge bg-secondary" th:text="${ride.id}"></span>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                <span><i class="fas fa-user me-2 text-primary"></i>Rider</span>
                                 <span th:text="${ride.rider.user.username}"></span>
                             </li>
-                            <li class="list-group-item">
-                                <i class="fas fa-map-marker-alt text-danger me-2"></i>
-                                <strong>Pickup:</strong>
-                                <span th:text="${ride.startLocationString}"></span>
-                            </li>
-                            <li class="list-group-item">
-                                <i class="fas fa-map-marker-alt text-success me-2"></i>
-                                <strong>Destination:</strong>
-                                <span th:text="${ride.endLocationString}"></span>
-                            </li>
-                            <li class="list-group-item">
-                                <i class="fas fa-clock text-primary me-2"></i>
-                                <strong>Requested:</strong>
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                <span><i class="fas fa-calendar-alt me-2 text-primary"></i>Requested</span>
                                 <span th:text="${#temporals.format(ride.requestTime, 'MMM dd, yyyy HH:mm')}"></span>
-                            </li>
-                            <li class="list-group-item">
-                                <i class="fas fa-tag text-primary me-2"></i>
-                                <strong>Status:</strong>
-                                <span class="badge bg-success" th:text="${ride.status}"></span>
                             </li>
                         </ul>
                     </div>
                 </div>
-
-                <!-- Ride Actions -->
+                
+                <!-- Pickup Location Card -->
                 <div class="card">
-                    <div class="card-header bg-primary text-white">
-                        <h5 class="mb-0"><i class="fas fa-tasks me-2"></i>Actions</h5>
+                    <div class="card-header bg-info text-white">
+                        <h5 class="mb-0"><i class="fas fa-map-marker-alt me-2"></i>Pickup Location</h5>
                     </div>
                     <div class="card-body">
-                        <div class="d-grid gap-2">
-                            <form th:action="@{/ride/start/{id}(id=${ride.id})}" method="post" 
-                                  th:if="${ride.status == T(com.ridesharing.model.RideStatus).ACCEPTED}">
-                                <button type="submit" class="btn btn-success w-100">
-                                    <i class="fas fa-play-circle me-2"></i>Start Ride
-                                </button>
-                            </form>
-                            <form th:action="@{/ride/complete/{id}(id=${ride.id})}" method="post"
-                                  th:if="${ride.status == T(com.ridesharing.model.RideStatus).STARTED}">
-                                <button type="submit" class="btn btn-success w-100">
-                                    <i class="fas fa-check-circle me-2"></i>Complete Ride
-                                </button>
-                            </form>
-                            <a href="/ride/available" class="btn btn-primary" 
-                               th:if="${ride.status == T(com.ridesharing.model.RideStatus).COMPLETED}">
-                                <i class="fas fa-list me-2"></i>View Available Rides
-                            </a>
-                        </div>
+                        <p class="form-control" th:text="${ride.startLocation.displayName}"></p>
                     </div>
                 </div>
             </div>
         </div>
-    </div>
-
-    <!-- Bootstrap JS -->
-    <script th:src="@{/webjars/bootstrap/5.3.3/js/bootstrap.bundle.min.js}"></script>
-    <!-- Leaflet JS -->
-    <script th:src="@{/webjars/leaflet/1.7.1/dist/leaflet.js}"></script>
+        
+        <div th:unless="${ride}" class="row">
+            <div class="col-12">
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle me-2"></i>No ride information available.
+                </div>
+            </div>
+        </div>
+    </section>
     
-    <!-- Initialize map -->
-    <script th:inline="javascript">
-        const ride = /*[[${ride}]]*/ {};
-        const startLat = ride.startLocation.latitude;
-        const startLng = ride.startLocation.longitude;
-        const endLat = ride.endLocation.latitude;
-        const endLng = ride.endLocation.longitude;
+    <th:block th:fragment="scripts">
+        <script src="https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY&libraries=places"></script>
+        <script th:inline="javascript">
+            // Static driver location (for demo purposes)
+            const DRIVER_LOCATION = { lat: 40.7527, lng: -73.9772 }; // Grand Central
 
-        const map = L.map('routeMap');
-        
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© OpenStreetMap contributors'
-        }).addTo(map);
+            function initMap() {
+                const mapContainer = document.getElementById('driverRouteMapContainer');
+                if (!mapContainer) {
+                    console.error('Map container not found');
+                    return;
+                }
 
-        // Add markers
-        const startMarker = L.marker([startLat, startLng], {
-            icon: L.divIcon({
-                className: 'custom-div-icon',
-                html: '<div style="background-color: #ea4335; width: 15px; height: 15px; border-radius: 50%; border: 2px solid white;"></div>',
-                iconSize: [15, 15],
-                iconAnchor: [7, 7]
-            })
-        }).addTo(map);
-        startMarker.bindPopup('<b>Pickup Location</b><br>' + ride.startLocationString).openPopup();
+                // Get coordinates from ride object
+                const pickupLocation = {
+                    lat: /*[[${ride.startLocation.latitude}]]*/ 40.7128,
+                    lng: /*[[${ride.startLocation.longitude}]]*/ -74.0060
+                };
 
-        const endMarker = L.marker([endLat, endLng], {
-            icon: L.divIcon({
-                className: 'custom-div-icon',
-                html: '<div style="background-color: #34a853; width: 15px; height: 15px; border-radius: 50%; border: 2px solid white;"></div>',
-                iconSize: [15, 15],
-                iconAnchor: [7, 7]
-            })
-        }).addTo(map);
-        endMarker.bindPopup('<b>Destination</b><br>' + ride.endLocationString);
+                // Initialize map with pickup location as center
+                const map = new google.maps.Map(mapContainer, {
+                    center: pickupLocation,
+                    zoom: 13,
+                    mapTypeControl: true,
+                    streetViewControl: true,
+                    fullscreenControl: true
+                });
 
-        // Draw route line
-        const routeLine = L.polyline([[startLat, startLng], [endLat, endLng]], {
-            color: '#4a86e8',
-            weight: 4,
-            opacity: 0.7,
-            dashArray: '10, 10'
-        }).addTo(map);
+                // Create directions service and renderer
+                const directionsService = new google.maps.DirectionsService();
+                const directionsRenderer = new google.maps.DirectionsRenderer({
+                    map: map,
+                    suppressMarkers: true, // We'll add our own markers
+                    polylineOptions: {
+                        strokeColor: "#4a86e8",
+                        strokeWeight: 8,
+                        strokeOpacity: 1.0
+                    }
+                });
 
-        // Fit map to show the whole route
-        map.fitBounds(routeLine.getBounds(), {
-            padding: [50, 50]
-        });
+                // Add pickup marker
+                const pickupMarker = new google.maps.Marker({
+                    position: pickupLocation,
+                    map: map,
+                    title: 'Pickup Location',
+                    icon: {
+                        path: google.maps.SymbolPath.CIRCLE,
+                        scale: 7,
+                        fillColor: "#ea4335",
+                        fillOpacity: 1,
+                        strokeWeight: 2,
+                        strokeColor: "#fff"
+                    }
+                });
 
-        // Add driver marker (in the middle of the route for demonstration)
-        const driverLat = (startLat + endLat) / 2;
-        const driverLng = (startLng + endLng) / 2;
-        
-        const driverMarker = L.marker([driverLat, driverLng], {
-            icon: L.divIcon({
-                className: 'car-icon',
-                html: '<div style="font-size: 24px; color: #4a86e8;"><i class="fas fa-car"></i></div>',
-                iconSize: [24, 24],
-                iconAnchor: [12, 12]
-            })
-        }).addTo(map);
-        driverMarker.bindPopup('<b>Your Location</b>');
-    </script>
+                // Add driver marker
+                const driverMarker = new google.maps.Marker({
+                    position: DRIVER_LOCATION,
+                    map: map,
+                    title: 'Driver Location',
+                    icon: {
+                        path: google.maps.SymbolPath.CAR,
+                        scale: 5,
+                        fillColor: "#4a86e8",
+                        fillOpacity: 1,
+                        strokeWeight: 1,
+                        strokeColor: "#fff"
+                    }
+                });
+
+                // Add info windows
+                const pickupInfoWindow = new google.maps.InfoWindow({
+                    content: `<b>Pickup Location</b><br>${/*[[${ride.startLocation.displayName}]]*/ 'Pickup Location'}`
+                });
+                pickupMarker.addListener('click', () => pickupInfoWindow.open(map, pickupMarker));
+
+                const driverInfoWindow = new google.maps.InfoWindow({
+                    content: `<b>Driver Location</b><br>${/*[[${ride.driver.user.username}]]*/ 'Driver'}`
+                });
+                driverMarker.addListener('click', () => driverInfoWindow.open(map, driverMarker));
+
+                // Calculate and display route
+                const request = {
+                    origin: DRIVER_LOCATION,
+                    destination: pickupLocation,
+                    travelMode: 'DRIVING'
+                };
+
+                directionsService.route(request, function(result, status) {
+                    if (status === 'OK') {
+                        directionsRenderer.setDirections(result);
+                    } else {
+                        console.error('Directions request failed:', status);
+                        // Fallback to simple polyline if directions fail
+                        const fallbackRoute = new google.maps.Polyline({
+                            path: [DRIVER_LOCATION, pickupLocation],
+                            geodesic: true,
+                            strokeColor: "#4a86e8",
+                            strokeOpacity: 1.0,
+                            strokeWeight: 8
+                        });
+                        fallbackRoute.setMap(map);
+                    }
+                });
+
+                // Fit map to show both markers
+                const bounds = new google.maps.LatLngBounds();
+                bounds.extend(pickupLocation);
+                bounds.extend(DRIVER_LOCATION);
+                map.fitBounds(bounds);
+            }
+
+            // Initialize map when the page loads
+            document.addEventListener('DOMContentLoaded', initMap);
+        </script>
+    </th:block>
 </body>
+
 </html> 

@@ -60,10 +60,25 @@ public class RideController {
     public String showRideStatus(@PathVariable Long rideId, Model model) {
         try {
             Ride ride = rideService.findRideById(rideId);
+            
+            // Debug logging
+            System.out.println("Ride found: " + ride.getId());
+            System.out.println("Start location: " + (ride.getStartLocation() != null ? 
+                ride.getStartLocation().getLatitude() + ", " + ride.getStartLocation().getLongitude() : "null"));
+            System.out.println("End location: " + (ride.getEndLocation() != null ? 
+                ride.getEndLocation().getLatitude() + ", " + ride.getEndLocation().getLongitude() : "null"));
+            
+            // Ensure we have valid location data
+            if (ride.getStartLocation() == null || ride.getEndLocation() == null) {
+                model.addAttribute("error", "Missing location data for ride");
+                return "redirect:/ride/request";
+            }
+            
             model.addAttribute("ride", ride);
-            model.addAttribute("message", "Ride status updated");
             return "ride-status";
         } catch (Exception e) {
+            System.err.println("Error loading ride: " + e.getMessage());
+            e.printStackTrace();
             model.addAttribute("error", "Error loading ride: " + e.getMessage());
             return "redirect:/ride/request";
         }
@@ -110,7 +125,7 @@ public class RideController {
         try {
             Ride ride = driverService.acceptRide(driverId, rideId);
             model.addAttribute("ride", ride);
-            // Redirect to driver's route view instead of ride status
+            // Redirect to driver route page instead of ride status
             return "redirect:/ride/route/" + rideId;
         } catch (Exception e) {
             model.addAttribute("error", "Failed to accept ride: " + e.getMessage());

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org" th:fragment="layout(title, content)">
+<html xmlns:th="http://www.thymeleaf.org" th:fragment="layout(title, content, scripts)">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -9,15 +9,19 @@
     <link rel="stylesheet" th:href="@{/webjars/bootstrap/5.3.3/css/bootstrap.min.css}">
     <!-- Font Awesome -->
     <link rel="stylesheet" th:href="@{/webjars/font-awesome/6.5.1/css/all.min.css}">
-    <!-- Leaflet Maps -->
-    <link rel="stylesheet" th:href="@{/webjars/leaflet/1.7.1/leaflet.css}">
     
     <style>
         .navbar-brand {
             font-weight: bold;
             color: #4a86e8 !important;
         }
-        
+        .statusMapContainer{
+            height: 400px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
         .map-container {
             height: 400px;
             margin-bottom: 20px;
@@ -102,9 +106,8 @@
     <!-- JavaScript Libraries -->
     <script th:src="@{/webjars/jquery/3.7.1/jquery.min.js}"></script>
     <script th:src="@{/webjars/bootstrap/5.3.3/js/bootstrap.bundle.min.js}"></script>
-    <script th:src="@{/webjars/leaflet/1.7.1/leaflet.js}"></script>
     
     <!-- Custom scripts -->
     <th:block th:replace="${scripts} ?: ~{}"></th:block>
 </body>
-</html> 
+</html>

@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org" 
-      th:replace="~{layout/base :: layout(~{::title}, ~{::section})}">
+      th:replace="~{layout/base :: layout(~{::title}, ~{::section}, ~{::th:block})}">
 <head>
     <title>Ride Status - RideShare</title>
 </head>
@@ -57,11 +57,11 @@
                             <li class="list-group-item d-flex justify-content-between align-items-center">
                                 <span><i class="fas fa-tag me-2 text-primary"></i>Status</span>
                                 <span th:class="${'badge ' + 
-                                  (ride.status == T(com.ridesharing.model.RideStatus).COMPLETED ? 'bg-success' : 
-                                   ride.status == T(com.ridesharing.model.RideStatus).REQUESTED ? 'bg-warning' : 
-                                   ride.status == T(com.ridesharing.model.RideStatus).CANCELLED ? 'bg-danger' : 
+                                  (ride.status.name() == 'COMPLETED' ? 'bg-success' : 
+                                   ride.status.name() == 'REQUESTED' ? 'bg-warning' : 
+                                   ride.status.name() == 'CANCELLED' ? 'bg-danger' : 
                                    'bg-info')}" 
-                                      th:text="${ride.status}"></span>
+                                    th:text="${ride.status}"></span>
                             </li>
                             <li class="list-group-item" th:if="${ride.fare != null}">
                                 <span><i class="fas fa-dollar-sign me-2 text-primary"></i>Fare</span>
@@ -79,11 +79,11 @@
                     <div class="card-body">
                         <div class="mb-3">
                             <label class="form-label"><i class="fas fa-map-marker-alt text-danger me-2"></i>Pickup</label>
-                            <p class="form-control" th:text="${ride.startLocationString}"></p>
+                            <p class="form-control" th:text="${ride.startLocation.displayName}"></p>
                         </div>
                         <div>
                             <label class="form-label"><i class="fas fa-flag-checkered me-2"></i>Destination</label>
-                            <p class="form-control" th:text="${ride.endLocationString}"></p>
+                            <p class="form-control" th:text="${ride.endLocation.displayName}"></p>
                         </div>
                     </div>
                 </div>
@@ -98,8 +98,7 @@
                             <a href="/ride/request" class="btn btn-primary">
                                 <i class="fas fa-plus-circle me-2"></i>Request New Ride
                             </a>
-                            <form th:if="${ride.status == T(com.ridesharing.model.RideStatus).REQUESTED || 
-                                           ride.status == T(com.ridesharing.model.RideStatus).ACCEPTED}" 
+                            <form th:if="${ride.status.name() == 'REQUESTED' || ride.status.name() == 'ACCEPTED'}" 
                                   th:action="@{/ride/cancel/{id}(id=${ride.id})}" method="post">
                                 <button type="submit" class="btn btn-danger w-100">
                                     <i class="fas fa-ban me-2"></i>Cancel Ride
@@ -120,101 +119,169 @@
             </div>
         </div>
     </section>
-    
+
     <th:block th:fragment="scripts">
+        <script src="https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY&libraries=places"></script>
         <script th:inline="javascript">
-            // Only initialize the map if we have a ride
-            if (document.getElementById('statusMapContainer')) {
-                // Get the ride data
-                const ride = /*[[${ride}]]*/ {};
-                const startLat = ride.startLocation ? ride.startLocation.latitude : null;
-                const startLng = ride.startLocation ? ride.startLocation.longitude : null;
-                const endLat = ride.endLocation ? ride.endLocation.latitude : null;
-                const endLng = ride.endLocation ? ride.endLocation.longitude : null;
-                
-                // Initialize the map with default view (New York)
-                const map = L.map('statusMapContainer').setView([40.7128, -74.0060], 13);
-                
-                // Add tile layer (map data)
-                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                }).addTo(map);
-                
-                // If we have location data from the ride, show it
-                if (startLat && startLng && endLat && endLng) {
-                    // Start marker
-                    const startMarker = L.marker([startLat, startLng], {
-                        icon: L.divIcon({
-                            className: 'custom-div-icon',
-                            html: '<div style="background-color: #ea4335; width: 15px; height: 15px; border-radius: 50%; border: 2px solid white;"></div>',
-                            iconSize: [15, 15],
-                            iconAnchor: [7, 7]
-                        })
-                    }).addTo(map);
-                    startMarker.bindPopup('<b>Pickup Location</b><br>' + ride.startLocationString).openPopup();
-                    
-                    // End marker
-                    const endMarker = L.marker([endLat, endLng], {
-                        icon: L.divIcon({
-                            className: 'custom-div-icon',
-                            html: '<div style="background-color: #34a853; width: 15px; height: 15px; border-radius: 50%; border: 2px solid white;"></div>',
-                            iconSize: [15, 15],
-                            iconAnchor: [7, 7]
-                        })
-                    }).addTo(map);
-                    endMarker.bindPopup('<b>Destination</b><br>' + ride.endLocationString);
-                    
-                    // Draw route line
-                    const routeLine = L.polyline([[startLat, startLng], [endLat, endLng]], {
-                        color: '#4a86e8',
-                        weight: 4,
-                        opacity: 0.7,
-                        dashArray: '10, 10'
-                    }).addTo(map);
-                    
-                    // Fit map to show the whole route
-                    map.fitBounds(routeLine.getBounds(), {
-                        padding: [50, 50]
-                    });
-                    
-                    // If the ride has a driver and is in progress, show driver location
-                    if (ride.driver && (ride.status === 'ACCEPTED' || ride.status === 'STARTED')) {
-                        // This would be a real-time update in a full implementation
-                        // For now, we'll just place a driver marker somewhere on the route
-                        const driverLat = (startLat + endLat) / 2;
-                        const driverLng = (startLng + endLng) / 2;
-                        
-                        const driverMarker = L.marker([driverLat, driverLng], {
-                            icon: L.divIcon({
-                                className: 'car-icon',
-                                html: '<div style="font-size: 24px; color: #4a86e8;"><i class="fas fa-car"></i></div>',
-                                iconSize: [24, 24],
-                                iconAnchor: [12, 12]
-                            })
-                        }).addTo(map);
-                        driverMarker.bindPopup('<b>Driver: ' + ride.driver.user.username + '</b>');
-                    }
-                } else {
-                    // Show a message on the map if no location data
-                    const mapDiv = document.getElementById('statusMapContainer');
-                    const overlay = document.createElement('div');
-                    overlay.style.position = 'absolute';
-                    overlay.style.top = '0';
-                    overlay.style.left = '0';
-                    overlay.style.width = '100%';
-                    overlay.style.height = '100%';
-                    overlay.style.backgroundColor = 'rgba(255,255,255,0.7)';
-                    overlay.style.display = 'flex';
-                    overlay.style.alignItems = 'center';
-                    overlay.style.justifyContent = 'center';
-                    overlay.style.zIndex = '1000';
-                    overlay.innerHTML = '<div class="text-center"><i class="fas fa-map-marker fa-3x text-muted mb-2"></i><p>Location data not available</p></div>';
-                    mapDiv.style.position = 'relative';
-                    mapDiv.appendChild(overlay);
+            // Static coordinates for New York City
+            console.log(/*[[${ride.endLocation.latitude}]]*/ '');
+            console.log(/*[[${ride.startLocation.displayName}]]*/ '');
+            const STATIC_COORDINATES = {
+                start: { lat: /*[[${ride.startLocation.latitude}]]*/'', lng: /*[[${ride.startLocation.longitude}]]*/ ''}, // Times Square
+                end: { lat: /*[[${ride.endLocation.latitude}]]*/'', lng: /*[[${ride.endLocation.longitude}]]*/'' },   // Central Park
+                driver: { lat: 40.7527, lng: -73.9772 }  // Grand Central
+            };
+
+            function initMap() {
+                const mapContainer = document.getElementById('statusMapContainer');
+                if (!mapContainer) {
+                    console.error('Map container not found');
+                    return;
                 }
-                
-                // In a real app, you would add auto-refresh or WebSocket updates here
+
+                // Initialize map with Times Square as center
+                const map = new google.maps.Map(mapContainer, {
+                    center: STATIC_COORDINATES.start,
+                    zoom: 13,
+                    mapTypeControl: true,
+                    streetViewControl: true,
+                    fullscreenControl: true
+                });
+
+                // Create directions service and renderer
+                const directionsService = new google.maps.DirectionsService();
+                const directionsRenderer = new google.maps.DirectionsRenderer({
+                    map: map,
+                    suppressMarkers: true, // We'll add our own markers
+                    polylineOptions: {
+                        strokeColor: "#34a853",
+                        strokeWeight: 8,
+                        strokeOpacity: 1.0
+                    }
+                });
+
+                // Add start marker (Times Square)
+                const startMarker = new google.maps.Marker({
+                    position: STATIC_COORDINATES.start,
+                    map: map,
+                    title: 'Pickup Location',
+                    icon: {
+                        path: google.maps.SymbolPath.CIRCLE,
+                        scale: 7,
+                        fillColor: "#ea4335",
+                        fillOpacity: 1,
+                        strokeWeight: 2,
+                        strokeColor: "#fff"
+                    }
+                });
+
+                // Add end marker (Central Park)
+                const endMarker = new google.maps.Marker({
+                    position: STATIC_COORDINATES.end,
+                    map: map,
+                    title: 'Destination',
+                    icon: {
+                        path: google.maps.SymbolPath.CIRCLE,
+                        scale: 7,
+                        fillColor: "#34a853",
+                        fillOpacity: 1,
+                        strokeWeight: 2,
+                        strokeColor: "#fff"
+                    }
+                });
+
+                // Add driver marker (Grand Central)
+                const driverMarker = new google.maps.Marker({
+                    position: STATIC_COORDINATES.driver,
+                    map: map,
+                    title: 'Driver Location',
+                    icon: {
+                        path: google.maps.SymbolPath.CAR,
+                        scale: 5,
+                        fillColor: "#4a86e8",
+                        fillOpacity: 1,
+                        strokeWeight: 1,
+                        strokeColor: "#fff"
+                    }
+                });
+
+                // Add info windows
+                const startInfoWindow = new google.maps.InfoWindow({
+                    content: '<b>Pickup Location</b><br>Times Square, New York'
+                });
+                startMarker.addListener('click', () => startInfoWindow.open(map, startMarker));
+
+                const endInfoWindow = new google.maps.InfoWindow({
+                    content: '<b>Destination</b><br>Central Park, New York'
+                });
+                endMarker.addListener('click', () => endInfoWindow.open(map, endMarker));
+
+                const driverInfoWindow = new google.maps.InfoWindow({
+                    content: '<b>Driver Location</b><br>Grand Central Station'
+                });
+                driverMarker.addListener('click', () => driverInfoWindow.open(map, driverMarker));
+
+                // Create a second directions renderer for the driver route
+                const driverDirectionsRenderer = new google.maps.DirectionsRenderer({
+                    map: map,
+                    suppressMarkers: true,
+                    polylineOptions: {
+                        strokeColor: "#4a86e8",
+                        strokeWeight: 8,
+                        strokeOpacity: 1.0
+                    }
+                });
+
+                // Function to calculate and display route
+                function calculateRoute(origin, destination, renderer) {
+                    const request = {
+                        origin: origin,
+                        destination: destination,
+                        travelMode: 'DRIVING'
+                    };
+
+                    directionsService.route(request, function(result, status) {
+                        if (status === 'OK') {
+                            renderer.setDirections(result);
+                        } else {
+                            console.error('Directions request failed: ' + status);
+                            // Fallback to simple polyline if directions fail
+                            const fallbackRoute = new google.maps.Polyline({
+                                path: [origin, destination],
+                                geodesic: true,
+                                strokeColor: renderer.get('polylineOptions').strokeColor,
+                                strokeOpacity: 1.0,
+                                strokeWeight: 8
+                            });
+                            fallbackRoute.setMap(map);
+                        }
+                    });
+                }
+
+                // Calculate route from driver to pickup
+                calculateRoute(
+                    STATIC_COORDINATES.driver,
+                    STATIC_COORDINATES.start,
+                    driverDirectionsRenderer
+                );
+
+                // Calculate route from pickup to destination
+                calculateRoute(
+                    STATIC_COORDINATES.start,
+                    STATIC_COORDINATES.end,
+                    directionsRenderer
+                );
+
+                // Fit map to show all markers
+                const bounds = new google.maps.LatLngBounds();
+                bounds.extend(STATIC_COORDINATES.start);
+                bounds.extend(STATIC_COORDINATES.end);
+                bounds.extend(STATIC_COORDINATES.driver);
+                map.fitBounds(bounds);
             }
+
+            // Initialize map when the page loads
+            document.addEventListener('DOMContentLoaded', initMap);
         </script>
     </th:block>
 </body>
